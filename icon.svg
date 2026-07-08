@@ -1,9 +1,23 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="112" fill="#4f46e5"/>
-  <rect x="96" y="128" width="320" height="288" rx="36" fill="#ffffff"/>
-  <rect x="96" y="128" width="320" height="76" rx="36" fill="#c7d2fe"/>
-  <rect x="96" y="168" width="320" height="36" fill="#c7d2fe"/>
-  <rect x="152" y="88" width="28" height="72" rx="14" fill="#312e81"/>
-  <rect x="332" y="88" width="28" height="72" rx="14" fill="#312e81"/>
-  <path d="M170 300 L230 356 L344 240" stroke="#16a34a" stroke-width="42" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <rect width="512" height="512" rx="110" fill="#EDC84D"/>
+  <g fill="#1F2A22">
+    <!-- ступени -->
+    <rect x="30" y="420" width="94" height="30" rx="5"/>
+    <rect x="107" y="358" width="94" height="30" rx="5"/>
+    <rect x="184" y="296" width="94" height="30" rx="5"/>
+    <rect x="261" y="234" width="152" height="30" rx="5"/>
+    <!-- флаг -->
+    <rect x="392" y="86" width="11" height="152" rx="5"/>
+    <path d="M403 92 h60 l-15 23 15 23 h-60 z"/>
+    <!-- голова -->
+    <circle cx="309" cy="124" r="25"/>
+  </g>
+  <!-- человечек -->
+  <g stroke="#1F2A22" stroke-width="17" stroke-linecap="round" fill="none">
+    <path d="M317 152 L336 214"/>
+    <path d="M321 166 L286 112"/>
+    <path d="M322 170 L369 197"/>
+    <path d="M336 214 L305 240"/>
+    <path d="M336 214 L368 234"/>
+  </g>
 </svg>
