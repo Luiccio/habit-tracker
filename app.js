@@ -7,6 +7,7 @@ const STORAGE_KEY = 'habitTrackerData';
 // Структура данных:
 // data.habits = [{ id, name, emoji, color, days: [0..6] (0=Вс, как в JS), createdAt: 'YYYY-MM-DD' }]
 // data.checks = { 'YYYY-MM-DD': [habitId, ...] }
+// data.moods  = { 'YYYY-MM-DD': { level: 1..5, note: '' } }
 let data = loadData();
 
 function loadData() {
@@ -15,13 +16,14 @@ function loadData() {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && Array.isArray(parsed.habits) && typeof parsed.checks === 'object') {
+        if (!parsed.moods || typeof parsed.moods !== 'object') parsed.moods = {};
         return parsed;
       }
     }
   } catch (e) {
     console.error('Не удалось прочитать данные:', e);
   }
-  return { habits: [], checks: {} };
+  return { habits: [], checks: {}, moods: {} };
 }
 
 function saveData() {
@@ -133,9 +135,76 @@ function monthPercent(habit, year, month) {
   return scheduled === 0 ? null : Math.round(done / scheduled * 100);
 }
 
+/* ==================== Настроение ==================== */
+
+const MOOD_EMOJIS = ['😢', '🙁', '😐', '🙂', '😄']; // уровни 1..5
+
+function getMood(ds) {
+  return data.moods[ds] || null;
+}
+
+// Обновить настроение дня; пустая запись (без уровня и текста) удаляется
+function updateMood(ds, patch) {
+  const m = { ...(data.moods[ds] || {}), ...patch };
+  if (!m.level && !(m.note && m.note.trim())) {
+    delete data.moods[ds];
+  } else {
+    data.moods[ds] = m;
+  }
+  saveData();
+}
+
+// Отрисовать 5 смайликов в контейнер; повторный тап по выбранному — снять отметку
+function renderMoodOptions(container, ds, afterChange) {
+  const mood = getMood(ds);
+  container.innerHTML = '';
+  MOOD_EMOJIS.forEach((emoji, i) => {
+    const level = i + 1;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'mood-option' + (mood && mood.level === level ? ' selected' : '');
+    btn.textContent = emoji;
+    btn.setAttribute('aria-label', 'Настроение ' + level + ' из 5');
+    btn.addEventListener('click', () => {
+      updateMood(ds, { level: mood && mood.level === level ? null : level });
+      if (afterChange) afterChange();
+    });
+    container.appendChild(btn);
+  });
+}
+
+function debounce(fn, ms) {
+  let t;
+  return (...args) => {
+    clearTimeout(t);
+    t = setTimeout(() => fn(...args), ms);
+  };
+}
+
 /* ==================== Состояние интерфейса ==================== */
 
-const EMOJIS = ['💧', '🏃', '📖', '🧘', '💪', '🥗', '😴', '✍️', '🦷', '🌅', '🎸', '💊', '🚶', '🧹', '💻', '🙏'];
+const EMOJIS = [
+  // спорт и активность
+  '🏃', '🚶', '🏋️', '🧘', '🚴', '🏊', '⚽', '🏀', '🎾', '🏐', '🏓', '🥊', '🤸', '🧗', '🛹', '⛷️', '🥋', '🏸', '💪', '🤾',
+  // здоровье
+  '💧', '💊', '🦷', '😴', '🛌', '🧴', '🧼', '🚿', '🛁', '❤️', '🩺', '🧠', '💆', '💅', '🧖', '🚭', '🌡️', '🧬',
+  // еда
+  '🥗', '🍎', '🍌', '🥦', '🥕', '🍊', '🍋', '🍓', '🫐', '🥑', '🍅', '🥒', '🌽', '🍞', '🥛', '🍵', '☕', '🥤', '🍽️', '🍳',
+  // учёба и работа
+  '📖', '📚', '✍️', '📝', '💻', '⌨️', '🖥️', '📊', '📈', '🧮', '🔬', '🔭', '🎓', '🗣️', '💼', '📅', '⏰', '⏱️', '📋', '🧑‍🏫',
+  // музыка и хобби
+  '🎸', '🎹', '🎻', '🥁', '🎤', '🎧', '🎨', '🖌️', '📷', '🎬', '🎮', '♟️', '🧩', '🪴', '🌻', '🌱', '🐕', '🐈', '🎣', '🧶',
+  // дом и быт
+  '🧹', '🧺', '🗑️', '🛒', '🔧', '🚗', '🏠', '🛏️', '🪞', '🌊',
+  // осознанность и настроение
+  '🙏', '🕯️', '📿', '☀️', '🌅', '🌙', '⭐', '🍃', '🔥', '😊',
+  // финансы
+  '💰', '💵', '🏦', '📉', '🪙',
+  // общение
+  '📞', '💬', '👨‍👩‍👧', '🤝', '💌', '🎁',
+  // разное
+  '✅', '🍀', '🎯', '🏆', '💡', '🔑', '✈️', '🗺️', '📵', '🎲',
+];
 const COLORS = ['#4f46e5', '#0ea5e9', '#16a34a', '#eab308', '#ea580c', '#dc2626', '#db2777', '#7c3aed'];
 
 let currentScreen = 'today';
@@ -180,6 +249,16 @@ function renderToday() {
   $('today-date').textContent = formatDayTitle(ds);
 
   renderWeekStrip();
+
+  // настроение: для будущих дней скрываем
+  $('mood-card').classList.toggle('hidden', isFuture);
+  if (!isFuture) {
+    renderMoodOptions($('mood-options'), ds, renderToday);
+    const mood = getMood(ds);
+    if (document.activeElement !== $('mood-note')) {
+      $('mood-note').value = mood && mood.note ? mood.note : '';
+    }
+  }
 
   const habits = habitsForDate(ds);
   const list = $('today-list');
@@ -280,6 +359,19 @@ $('week-today').addEventListener('click', () => {
   renderToday();
 });
 
+// Комментарий к настроению: сохраняем через полсекунды после окончания ввода
+$('mood-note').addEventListener('input', debounce(() => {
+  if (selectedDate <= todayStr()) {
+    updateMood(selectedDate, { note: $('mood-note').value });
+  }
+}, 500));
+
+$('day-mood-note').addEventListener('input', debounce(() => {
+  if (dayModalDate) {
+    updateMood(dayModalDate, { note: $('day-mood-note').value });
+  }
+}, 500));
+
 /* ==================== Экран «Календарь» ==================== */
 
 function initCalendar() {
@@ -353,6 +445,69 @@ function renderCalendar() {
   }
 
   renderMonthStats();
+  renderMoodChart();
+}
+
+/* ---------- График настроения ---------- */
+
+function renderMoodChart() {
+  const wrap = $('mood-chart-wrap');
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+
+  // точки: дни месяца, где отмечено настроение
+  const points = [];
+  for (let day = 1; day <= daysInMonth; day++) {
+    const ds = dateStr(new Date(calYear, calMonth, day));
+    const mood = getMood(ds);
+    if (mood && mood.level) points.push({ day, ds, level: mood.level, note: mood.note || '' });
+  }
+
+  $('mood-chart-empty').classList.toggle('hidden', points.length > 0);
+  if (points.length === 0) {
+    wrap.innerHTML = '';
+    return;
+  }
+
+  // геометрия графика
+  const W = 360, H = 140;
+  const padL = 34, padR = 12, padT = 10, padB = 24;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+  const x = day => padL + (daysInMonth === 1 ? plotW / 2 : (day - 1) / (daysInMonth - 1) * plotW);
+  const y = level => padT + (5 - level) / 4 * plotH;
+
+  let svg = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
+
+  // горизонтальные линии уровней со смайликами слева
+  for (let lvl = 1; lvl <= 5; lvl++) {
+    svg += `<line x1="${padL}" y1="${y(lvl)}" x2="${W - padR}" y2="${y(lvl)}" stroke="#e5e7eb" stroke-width="1"/>`;
+    svg += `<text x="6" y="${y(lvl) + 5}" font-size="13">${MOOD_EMOJIS[lvl - 1]}</text>`;
+  }
+
+  // подписи дней по оси X
+  const step = daysInMonth > 20 ? 5 : (daysInMonth > 10 ? 3 : 1);
+  for (let day = 1; day <= daysInMonth; day += step) {
+    svg += `<text x="${x(day)}" y="${H - 6}" font-size="9" fill="#6b7280" text-anchor="middle">${day}</text>`;
+  }
+
+  // линия
+  if (points.length > 1) {
+    const path = points.map(p => `${x(p.day).toFixed(1)},${y(p.level).toFixed(1)}`).join(' ');
+    svg += `<polyline points="${path}" fill="none" stroke="#4f46e5" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+  }
+
+  // точки (+ невидимая зона побольше для удобного тапа)
+  points.forEach(p => {
+    svg += `<circle cx="${x(p.day)}" cy="${y(p.level)}" r="4.5" fill="#4f46e5" stroke="#fff" stroke-width="1.5"/>`;
+    svg += `<circle class="chart-dot" data-ds="${p.ds}" cx="${x(p.day)}" cy="${y(p.level)}" r="13" fill="transparent"/>`;
+  });
+
+  svg += '</svg>';
+  wrap.innerHTML = svg;
+
+  wrap.querySelectorAll('.chart-dot').forEach(dot => {
+    dot.addEventListener('click', () => openDayModal(dot.dataset.ds));
+  });
 }
 
 function renderMonthStats() {
@@ -381,6 +536,13 @@ function openDayModal(ds) {
 
 function renderDayModal() {
   const ds = dayModalDate;
+
+  renderMoodOptions($('day-mood-options'), ds, renderDayModal);
+  const mood = getMood(ds);
+  if (document.activeElement !== $('day-mood-note')) {
+    $('day-mood-note').value = mood && mood.note ? mood.note : '';
+  }
+
   const list = $('day-modal-list');
   list.innerHTML = '';
   const habits = habitsForDate(ds);
@@ -592,6 +754,7 @@ $('import-file').addEventListener('change', e => {
       if (!imported || !Array.isArray(imported.habits) || typeof imported.checks !== 'object') {
         throw new Error('неверный формат');
       }
+      if (!imported.moods || typeof imported.moods !== 'object') imported.moods = {};
       if (!confirm(`Заменить текущие данные? Будет загружено привычек: ${imported.habits.length}.`)) return;
       data = imported;
       saveData();
@@ -619,6 +782,43 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
     if (e.target === overlay) overlay.classList.add('hidden');
   });
 });
+
+/* ==================== Свайпы между вкладками ==================== */
+
+const SCREEN_ORDER = ['today', 'calendar', 'habits'];
+let touchStartX = 0, touchStartY = 0, touchTracking = false;
+
+const contentEl = document.querySelector('.content');
+
+contentEl.addEventListener('touchstart', e => {
+  if (e.touches.length !== 1) { touchTracking = false; return; }
+  // свайп не должен срабатывать при вводе текста
+  if (e.target.closest('textarea, input')) { touchTracking = false; return; }
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+  touchTracking = true;
+}, { passive: true });
+
+contentEl.addEventListener('touchend', e => {
+  if (!touchTracking) return;
+  touchTracking = false;
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  const dy = e.changedTouches[0].clientY - touchStartY;
+  // горизонтальный свайп: достаточно длинный и заметно горизонтальнее вертикали
+  if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+  const idx = SCREEN_ORDER.indexOf(currentScreen);
+  const next = dx < 0 ? idx + 1 : idx - 1; // влево — следующая вкладка
+  if (next >= 0 && next < SCREEN_ORDER.length) {
+    switchScreen(SCREEN_ORDER[next]);
+  }
+}, { passive: true });
+
+/* ==================== Блокировка зума ==================== */
+
+// пинч-зум в Safari на iOS (не отключается через meta viewport);
+// двойной тап блокируется через CSS touch-action: pan-x pan-y
+document.addEventListener('gesturestart', e => e.preventDefault());
+document.addEventListener('gesturechange', e => e.preventDefault());
 
 /* ==================== Запуск ==================== */
 
