@@ -484,9 +484,10 @@ html, body {
 
 /* ---------- Нижняя навигация ---------- */
 .tab-bar {
-  position: absolute;
-  left: 16px;
-  right: 16px;
+  /* fixed — привязка к экрану: absolute внутри 100dvh-контейнера сползает при pull-to-refresh */
+  position: fixed;
+  left: max(16px, calc(50% - 244px)); /* 16px от края, но не шире .app (520px) */
+  right: max(16px, calc(50% - 244px));
   bottom: calc(12px + env(safe-area-inset-bottom));
   height: var(--tab-height);
   background: var(--tab-bg);
@@ -517,8 +518,8 @@ html, body {
 
 /* ---------- FAB ---------- */
 .fab {
-  position: absolute;
-  right: 20px;
+  position: fixed;
+  right: max(20px, calc(50% - 240px)); /* 20px от края, но не шире .app (520px) */
   bottom: calc(var(--tab-height) + env(safe-area-inset-bottom) + 30px);
   width: 56px;
   height: 56px;
