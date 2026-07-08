@@ -39,16 +39,29 @@ html, body {
 
 .content {
   flex: 1;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  padding: 16px 16px 96px; /* запас снизу, чтобы кнопка «+» не перекрывала список */
+  overflow: hidden;
+  position: relative;
+}
+
+/* лента из трёх экранов; сдвигается по горизонтали при свайпе */
+.screens-track {
+  display: flex;
+  width: 300%;
+  height: 100%;
+  transition: transform .3s cubic-bezier(.25, .8, .35, 1);
+  touch-action: pan-y; /* вертикальный скролл — браузеру, горизонтальный жест — нам */
 }
 
 .hidden { display: none !important; }
 
 /* ---------- Экраны ---------- */
-.screen { display: none; }
-.screen.active { display: block; }
+.screen {
+  width: calc(100% / 3);
+  flex-shrink: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px 16px 96px; /* запас снизу, чтобы кнопка «+» не перекрывала список */
+}
 
 .screen-header { margin-bottom: 16px; }
 .screen-header h1 { font-size: 26px; }

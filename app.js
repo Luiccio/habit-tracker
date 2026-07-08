@@ -233,8 +233,7 @@ function switchScreen(name) {
   currentScreen = name;
   document.querySelectorAll('.tab').forEach(t =>
     t.classList.toggle('active', t.dataset.screen === name));
-  document.querySelectorAll('.screen').forEach(s =>
-    s.classList.toggle('active', s.id === 'screen-' + name));
+  applyTrackPosition(true);
   render();
 }
 
@@ -786,31 +785,73 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
 /* ==================== Свайпы между вкладками ==================== */
 
 const SCREEN_ORDER = ['today', 'calendar', 'habits'];
-let touchStartX = 0, touchStartY = 0, touchTracking = false;
-
 const contentEl = document.querySelector('.content');
+const trackEl = $('screens-track');
+
+// Поставить ленту экранов на текущую вкладку (animate = с плавным доездом)
+function applyTrackPosition(animate) {
+  trackEl.style.transition = animate ? '' : 'none';
+  const idx = SCREEN_ORDER.indexOf(currentScreen);
+  trackEl.style.transform = `translateX(${-idx * 100 / 3}%)`;
+}
+
+let swipe = null; // { x, y, dir: null|'h'|'v', t }
 
 contentEl.addEventListener('touchstart', e => {
-  if (e.touches.length !== 1) { touchTracking = false; return; }
-  // свайп не должен срабатывать при вводе текста
-  if (e.target.closest('textarea, input')) { touchTracking = false; return; }
-  touchStartX = e.touches[0].clientX;
-  touchStartY = e.touches[0].clientY;
-  touchTracking = true;
+  if (e.touches.length !== 1 || e.target.closest('textarea, input, select')) {
+    swipe = null;
+    return;
+  }
+  swipe = { x: e.touches[0].clientX, y: e.touches[0].clientY, dir: null, t: performance.now() };
 }, { passive: true });
 
-contentEl.addEventListener('touchend', e => {
-  if (!touchTracking) return;
-  touchTracking = false;
-  const dx = e.changedTouches[0].clientX - touchStartX;
-  const dy = e.changedTouches[0].clientY - touchStartY;
-  // горизонтальный свайп: достаточно длинный и заметно горизонтальнее вертикали
-  if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
-  const idx = SCREEN_ORDER.indexOf(currentScreen);
-  const next = dx < 0 ? idx + 1 : idx - 1; // влево — следующая вкладка
-  if (next >= 0 && next < SCREEN_ORDER.length) {
-    switchScreen(SCREEN_ORDER[next]);
+contentEl.addEventListener('touchmove', e => {
+  if (!swipe) return;
+  const dx = e.touches[0].clientX - swipe.x;
+  const dy = e.touches[0].clientY - swipe.y;
+
+  // определяем направление жеста по первым миллиметрам движения
+  if (!swipe.dir) {
+    if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+    swipe.dir = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v';
+    if (swipe.dir === 'h') trackEl.style.transition = 'none';
   }
+  if (swipe.dir !== 'h') return;
+
+  e.preventDefault(); // не даём странице скроллиться, пока тянем экраны
+  const idx = SCREEN_ORDER.indexOf(currentScreen);
+  let offset = dx;
+  // на крайних вкладках тянем с сопротивлением
+  if ((idx === 0 && dx > 0) || (idx === SCREEN_ORDER.length - 1 && dx < 0)) offset = dx / 3;
+  const pct = offset / contentEl.clientWidth * (100 / 3);
+  trackEl.style.transform = `translateX(${-idx * 100 / 3 + pct}%)`;
+}, { passive: false });
+
+contentEl.addEventListener('touchend', e => {
+  if (!swipe) return;
+  const wasHorizontal = swipe.dir === 'h';
+  const dx = e.changedTouches[0].clientX - swipe.x;
+  const dt = performance.now() - swipe.t;
+  swipe = null;
+  if (!wasHorizontal) return;
+
+  const idx = SCREEN_ORDER.indexOf(currentScreen);
+  const flick = dt < 250 && Math.abs(dx) > 40;          // быстрый короткий свайп
+  const far = Math.abs(dx) > contentEl.clientWidth / 3; // или протянули далеко
+  let next = idx;
+  if (flick || far) next = dx < 0 ? idx + 1 : idx - 1;
+  next = Math.max(0, Math.min(SCREEN_ORDER.length - 1, next));
+
+  if (next !== idx) {
+    switchScreen(SCREEN_ORDER[next]);
+  } else {
+    applyTrackPosition(true); // плавно вернуть на место
+  }
+}, { passive: true });
+
+contentEl.addEventListener('touchcancel', () => {
+  swipe = null;
+  applyTrackPosition(true);
 }, { passive: true });
 
 /* ==================== Блокировка зума ==================== */
@@ -822,13 +863,15 @@ document.addEventListener('gesturechange', e => e.preventDefault());
 
 /* ==================== Запуск ==================== */
 
+// Рисуем все три экрана: при свайпе соседние вкладки видны заранее
 function render() {
-  if (currentScreen === 'today') renderToday();
-  else if (currentScreen === 'calendar') renderCalendar();
-  else renderHabits();
+  renderToday();
+  renderCalendar();
+  renderHabits();
 }
 
 initCalendar();
+applyTrackPosition(false);
 render();
 
 // Обновление экрана при смене даты (если вкладка открыта долго)
