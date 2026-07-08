@@ -9,9 +9,18 @@
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icon.svg">
   <link rel="stylesheet" href="style.css">
+  <script>
+    // применяем сохранённую тему до отрисовки страницы, чтобы не мигала светлая
+    try {
+      var savedTheme = localStorage.getItem('habitTheme');
+      if (!savedTheme) savedTheme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      document.documentElement.dataset.theme = savedTheme;
+    } catch (e) {}
+  </script>
 </head>
 <body>
   <div class="app">
+    <button id="theme-toggle" class="theme-toggle" aria-label="Сменить тему">🌙</button>
     <main class="content">
     <div class="screens-track" id="screens-track">
 

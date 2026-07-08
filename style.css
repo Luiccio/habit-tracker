@@ -9,7 +9,28 @@
   --danger: #dc2626;
   --success: #16a34a;
   --radius: 14px;
-  --tab-height: 62px;
+  --tab-height: 60px;
+  --tab-bg: rgba(255, 255, 255, .72);
+  --day-future: #c3c7cf;
+  --level3-bg: #ecfdf5;
+  --body-bg: var(--bg);
+}
+
+/* тёмная тема (по референсу: глубокий фиолетовый фон, лаванда + мята) */
+:root[data-theme="dark"] {
+  --primary: #a78bfa;
+  --primary-light: rgba(167, 139, 250, .16);
+  --bg: #0e0d14;
+  --card: #1b1926;
+  --text: #f1eefa;
+  --text-muted: #9d97b3;
+  --border: #2b2839;
+  --danger: #f87171;
+  --success: #5eead4;
+  --tab-bg: rgba(27, 25, 38, .68);
+  --day-future: #4a4660;
+  --level3-bg: rgba(94, 234, 212, .12);
+  --body-bg: radial-gradient(140% 90% at 20% -10%, #272048 0%, #0e0d14 55%) fixed #0e0d14;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -20,10 +41,28 @@ html { -webkit-text-size-adjust: 100%; }
 
 html, body {
   height: 100%;
-  background: var(--bg);
+  background: var(--body-bg);
   color: var(--text);
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   -webkit-tap-highlight-color: transparent;
+  transition: background .25s ease, color .25s ease;
+}
+
+/* ---------- Кнопка смены темы ---------- */
+.theme-toggle {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--card);
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 12;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .14);
 }
 
 .app {
@@ -60,13 +99,13 @@ html, body {
   flex-shrink: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 16px 16px 96px; /* запас снизу, чтобы кнопка «+» не перекрывала список */
+  padding: 16px 16px 150px; /* запас снизу: плавающая панель и кнопка «+» */
   scrollbar-width: none;      /* Firefox */
   -ms-overflow-style: none;   /* старый Edge/IE */
 }
 .screen::-webkit-scrollbar { display: none; } /* Chrome, Safari */
 
-.screen-header { margin-bottom: 16px; }
+.screen-header { margin-bottom: 16px; padding-right: 48px; /* не наезжать на кнопку темы */ }
 .screen-header h1 { font-size: 26px; }
 .subtitle { color: var(--text-muted); font-size: 14px; margin-top: 2px; text-transform: capitalize; }
 
@@ -143,7 +182,7 @@ html, body {
   font-weight: 700;
   outline: none;
 }
-.week-day.future .wd-num { color: #c3c7cf; }
+.week-day.future .wd-num { color: var(--day-future); }
 .week-day .wd-dot {
   width: 6px;
   height: 6px;
@@ -262,7 +301,7 @@ html, body {
 .progress-fill {
   height: 100%;
   width: 0;
-  background: linear-gradient(90deg, var(--primary), #818cf8);
+  background: linear-gradient(90deg, var(--primary), var(--success));
   border-radius: 4px;
   transition: width .3s ease;
 }
@@ -396,7 +435,7 @@ html, body {
   box-shadow: 0 1px 2px rgba(0,0,0,.04);
 }
 .cal-day.other-month { visibility: hidden; }
-.cal-day.future { color: #c3c7cf; cursor: default; }
+.cal-day.future { color: var(--day-future); cursor: default; }
 .cal-day.today { outline: 2px solid var(--primary); outline-offset: -2px; font-weight: 700; }
 
 .cal-day .dot {
@@ -408,7 +447,7 @@ html, body {
 .cal-day.level-1 .dot { background: #a7f3d0; }
 .cal-day.level-2 .dot { background: #34d399; }
 .cal-day.level-3 .dot { background: var(--success); }
-.cal-day.level-3 { background: #ecfdf5; }
+.cal-day.level-3 { background: var(--level3-bg); }
 
 .cal-legend {
   display: flex;
@@ -445,13 +484,20 @@ html, body {
 
 /* ---------- Нижняя навигация ---------- */
 .tab-bar {
-  flex-shrink: 0;
-  height: calc(var(--tab-height) + env(safe-area-inset-bottom));
-  background: var(--card);
-  border-top: 1px solid var(--border);
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  height: var(--tab-height);
+  background: var(--tab-bg);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  border: 1px solid var(--border);
+  border-radius: 24px;
   display: flex;
-  padding-bottom: env(safe-area-inset-bottom);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .18);
   z-index: 10;
+  overflow: hidden;
 }
 .tab {
   flex: 1;
@@ -473,18 +519,22 @@ html, body {
 .fab {
   position: absolute;
   right: 20px;
-  bottom: calc(var(--tab-height) + env(safe-area-inset-bottom) + 18px);
+  bottom: calc(var(--tab-height) + env(safe-area-inset-bottom) + 30px);
   width: 56px;
   height: 56px;
   border-radius: 50%;
   border: none;
-  background: var(--primary);
+  background: linear-gradient(135deg, var(--primary), #6d5ae8);
   color: #fff;
   font-size: 30px;
   line-height: 1;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(79,70,229,.4);
+  box-shadow: 0 4px 14px rgba(109, 90, 232, .45);
   z-index: 10;
+}
+:root[data-theme="dark"] .fab {
+  background: linear-gradient(135deg, #a78bfa, #5eead4);
+  color: #14121d;
 }
 
 /* ---------- Модалки ---------- */

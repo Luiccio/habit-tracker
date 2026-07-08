@@ -467,6 +467,13 @@ function renderMoodChart() {
     return;
   }
 
+  // цвета из текущей темы
+  const css = getComputedStyle(document.documentElement);
+  const cGrid = css.getPropertyValue('--border').trim();
+  const cLabel = css.getPropertyValue('--text-muted').trim();
+  const cLine = css.getPropertyValue('--primary').trim();
+  const cCard = css.getPropertyValue('--card').trim();
+
   // геометрия графика
   const W = 360, H = 140;
   const padL = 34, padR = 12, padT = 10, padB = 24;
@@ -479,25 +486,25 @@ function renderMoodChart() {
 
   // горизонтальные линии уровней со смайликами слева
   for (let lvl = 1; lvl <= 5; lvl++) {
-    svg += `<line x1="${padL}" y1="${y(lvl)}" x2="${W - padR}" y2="${y(lvl)}" stroke="#e5e7eb" stroke-width="1"/>`;
+    svg += `<line x1="${padL}" y1="${y(lvl)}" x2="${W - padR}" y2="${y(lvl)}" stroke="${cGrid}" stroke-width="1"/>`;
     svg += `<text x="6" y="${y(lvl) + 5}" font-size="13">${MOOD_EMOJIS[lvl - 1]}</text>`;
   }
 
   // подписи дней по оси X
   const step = daysInMonth > 20 ? 5 : (daysInMonth > 10 ? 3 : 1);
   for (let day = 1; day <= daysInMonth; day += step) {
-    svg += `<text x="${x(day)}" y="${H - 6}" font-size="9" fill="#6b7280" text-anchor="middle">${day}</text>`;
+    svg += `<text x="${x(day)}" y="${H - 6}" font-size="9" fill="${cLabel}" text-anchor="middle">${day}</text>`;
   }
 
   // линия
   if (points.length > 1) {
     const path = points.map(p => `${x(p.day).toFixed(1)},${y(p.level).toFixed(1)}`).join(' ');
-    svg += `<polyline points="${path}" fill="none" stroke="#4f46e5" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+    svg += `<polyline points="${path}" fill="none" stroke="${cLine}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
   }
 
   // точки (+ невидимая зона побольше для удобного тапа)
   points.forEach(p => {
-    svg += `<circle cx="${x(p.day)}" cy="${y(p.level)}" r="4.5" fill="#4f46e5" stroke="#fff" stroke-width="1.5"/>`;
+    svg += `<circle cx="${x(p.day)}" cy="${y(p.level)}" r="4.5" fill="${cLine}" stroke="${cCard}" stroke-width="1.5"/>`;
     svg += `<circle class="chart-dot" data-ds="${p.ds}" cx="${x(p.day)}" cy="${y(p.level)}" r="13" fill="transparent"/>`;
   });
 
@@ -869,6 +876,27 @@ function render() {
   renderCalendar();
   renderHabits();
 }
+
+/* ==================== Тема ==================== */
+
+const THEME_KEY = 'habitTheme';
+
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  $('theme-toggle').textContent = theme === 'dark' ? '☀️' : '🌙';
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.content = theme === 'dark' ? '#0e0d14' : '#4f46e5';
+}
+
+$('theme-toggle').addEventListener('click', () => {
+  const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  localStorage.setItem(THEME_KEY, next);
+  applyTheme(next);
+  render(); // график перерисовывается в цветах новой темы
+});
+
+// тема уже применена инлайн-скриптом в <head>; синхронизируем иконку и статус-бар
+applyTheme(document.documentElement.dataset.theme || 'light');
 
 initCalendar();
 applyTrackPosition(false);
