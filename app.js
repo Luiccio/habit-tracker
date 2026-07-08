@@ -887,8 +887,9 @@ setInterval(() => {
   }
 }, 60000);
 
-// Регистрация service worker для офлайн-режима (PWA)
+// Регистрация service worker для офлайн-режима (PWA);
+// updateViaCache: 'none' — проверять обновления sw.js всегда с сервера
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').catch(err =>
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(err =>
     console.warn('Service worker не зарегистрирован:', err));
 }

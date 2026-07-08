@@ -1,7 +1,7 @@
 'use strict';
 
 // При изменении файлов приложения увеличьте версию — кэш обновится
-const CACHE_NAME = 'habit-tracker-v5';
+const CACHE_NAME = 'habit-tracker-v6';
 
 const APP_SHELL = [
   './',
@@ -14,7 +14,9 @@ const APP_SHELL = [
 
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL))
+    // cache: 'reload' — качаем с сервера, минуя HTTP-кэш браузера
+    caches.open(CACHE_NAME).then(cache =>
+      cache.addAll(APP_SHELL.map(url => new Request(url, { cache: 'reload' }))))
   );
   self.skipWaiting();
 });
@@ -27,19 +29,16 @@ self.addEventListener('activate', event => {
   );
 });
 
-// Сначала кэш, при промахе — сеть (и докэшируем ответ)
+// Сначала сеть (всегда свежая версия), кэш — только когда офлайн
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   event.respondWith(
-    caches.match(event.request).then(cached => {
-      if (cached) return cached;
-      return fetch(event.request).then(response => {
-        if (response.ok && event.request.url.startsWith(self.location.origin)) {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
-        }
-        return response;
-      });
-    })
+    fetch(event.request).then(response => {
+      if (response.ok && event.request.url.startsWith(self.location.origin)) {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
+      }
+      return response;
+    }).catch(() => caches.match(event.request))
   );
 });
