@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#4f46e5">
+  <title>Мои привычки</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <main class="content">
+
+    <!-- Экран «Сегодня» -->
+    <section id="screen-today" class="screen active">
+      <header class="screen-header">
+        <h1 id="today-title">Сегодня</h1>
+        <p id="today-date" class="subtitle"></p>
+      </header>
+      <div class="week-strip">
+        <div class="week-nav">
+          <span id="week-month-label" class="week-month-label"></span>
+          <div class="week-nav-btns">
+            <button id="week-prev" class="week-nav-btn" aria-label="Предыдущая неделя">‹</button>
+            <button id="week-today" class="week-nav-btn week-today-btn">Сегодня</button>
+            <button id="week-next" class="week-nav-btn" aria-label="Следующая неделя">›</button>
+          </div>
+        </div>
+        <div id="week-days" class="week-days"></div>
+      </div>
+      <div id="today-progress" class="progress-card hidden">
+        <div class="progress-text">
+          <span id="progress-label">Выполнено 0 из 0</span>
+          <span id="progress-percent">0%</span>
+        </div>
+        <div class="progress-bar"><div id="progress-fill" class="progress-fill"></div></div>
+      </div>
+      <div id="today-list" class="habit-list"></div>
+      <div id="today-empty" class="empty-state hidden">
+        <div class="empty-icon">🌱</div>
+        <p>На сегодня привычек нет.<br>Добавьте первую на вкладке «Привычки».</p>
+      </div>
+    </section>
+
+    <!-- Экран «Календарь» -->
+    <section id="screen-calendar" class="screen">
+      <header class="screen-header">
+        <h1>Календарь</h1>
+      </header>
+      <select id="cal-habit-filter" class="habit-filter"></select>
+      <div class="cal-nav">
+        <button id="cal-prev" class="cal-nav-btn" aria-label="Предыдущий месяц">‹</button>
+        <span id="cal-month-label" class="cal-month-label"></span>
+        <button id="cal-next" class="cal-nav-btn" aria-label="Следующий месяц">›</button>
+      </div>
+      <div class="cal-weekdays">
+        <span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span>
+      </div>
+      <div id="cal-grid" class="cal-grid"></div>
+      <div class="cal-legend">
+        <span class="legend-item"><span class="legend-dot level-0"></span>нет</span>
+        <span class="legend-item"><span class="legend-dot level-1"></span>частично</span>
+        <span class="legend-item"><span class="legend-dot level-3"></span>всё</span>
+      </div>
+      <div id="cal-month-stats" class="month-stats"></div>
+    </section>
+
+    <!-- Экран «Привычки» -->
+    <section id="screen-habits" class="screen">
+      <header class="screen-header">
+        <h1>Привычки</h1>
+      </header>
+      <div id="habits-list" class="habit-list"></div>
+      <div id="habits-empty" class="empty-state hidden">
+        <div class="empty-icon">✨</div>
+        <p>Пока нет ни одной привычки.<br>Нажмите «+», чтобы добавить.</p>
+      </div>
+      <div class="data-actions">
+        <button id="btn-export" class="btn-secondary">⬇ Экспорт JSON</button>
+        <button id="btn-import" class="btn-secondary">⬆ Импорт JSON</button>
+        <input type="file" id="import-file" accept=".json,application/json" hidden>
+      </div>
+    </section>
+    </main>
+
+    <!-- Нижняя навигация -->
+    <nav class="tab-bar">
+      <button class="tab active" data-screen="today"><span class="tab-icon">☀️</span><span>Сегодня</span></button>
+      <button class="tab" data-screen="calendar"><span class="tab-icon">📅</span><span>Календарь</span></button>
+      <button class="tab" data-screen="habits"><span class="tab-icon">📋</span><span>Привычки</span></button>
+    </nav>
+
+    <!-- Кнопка добавления -->
+    <button id="fab" class="fab" aria-label="Добавить привычку">+</button>
+  </div>
+
+  <!-- Модалка: добавление/редактирование привычки -->
+  <div id="habit-modal" class="modal-overlay hidden">
+    <div class="modal">
+      <h2 id="habit-modal-title">Новая привычка</h2>
+      <label class="field-label">Название</label>
+      <input type="text" id="habit-name" class="text-input" placeholder="Например: пить воду" maxlength="60">
+
+      <label class="field-label">Иконка</label>
+      <div id="emoji-picker" class="emoji-picker"></div>
+
+      <label class="field-label">Цвет</label>
+      <div id="color-picker" class="color-picker"></div>
+
+      <label class="field-label">Дни недели</label>
+      <div class="days-row-wrap">
+        <div id="days-picker" class="days-picker"></div>
+        <button id="btn-all-days" class="btn-link" type="button">каждый день</button>
+      </div>
+
+      <div class="modal-actions">
+        <button id="habit-cancel" class="btn-secondary">Отмена</button>
+        <button id="habit-save" class="btn-primary">Сохранить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модалка: день в календаре -->
+  <div id="day-modal" class="modal-overlay hidden">
+    <div class="modal">
+      <h2 id="day-modal-title"></h2>
+      <div id="day-modal-list" class="habit-list"></div>
+      <div class="modal-actions">
+        <button id="day-close" class="btn-primary">Готово</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модалка: подтверждение удаления -->
+  <div id="confirm-modal" class="modal-overlay hidden">
+    <div class="modal">
+      <h2>Удалить привычку?</h2>
+      <p id="confirm-text" class="confirm-text"></p>
+      <div class="modal-actions">
+        <button id="confirm-cancel" class="btn-secondary">Отмена</button>
+        <button id="confirm-delete" class="btn-danger">Удалить</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
