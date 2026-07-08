@@ -51,7 +51,7 @@ html, body {
 /* ---------- Кнопка смены темы ---------- */
 .theme-toggle {
   position: absolute;
-  top: calc(14px + env(safe-area-inset-top, 0px));
+  top: 14px;
   right: 16px;
   width: 40px;
   height: 40px;
@@ -99,8 +99,7 @@ html, body {
   flex-shrink: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  /* сверху — отступ под вырез камеры в полноэкранном режиме, снизу — панель и кнопка «+» */
-  padding: calc(16px + env(safe-area-inset-top, 0px)) 16px 150px;
+  padding: 16px 16px 150px; /* запас снизу: плавающая панель и кнопка «+» */
   scrollbar-width: none;      /* Firefox */
   -ms-overflow-style: none;   /* старый Edge/IE */
 }
