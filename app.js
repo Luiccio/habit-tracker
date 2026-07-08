@@ -885,7 +885,7 @@ function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
   $('theme-toggle').textContent = theme === 'dark' ? '☀️' : '🌙';
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.content = theme === 'dark' ? '#0e0d14' : '#4f46e5';
+  if (meta) meta.content = theme === 'dark' ? '#0e0d14' : '#f4f5f7';
 }
 
 $('theme-toggle').addEventListener('click', () => {
