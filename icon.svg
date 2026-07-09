@@ -1,23 +1,20 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="110" fill="#EDC84D"/>
-  <g fill="#1F2A22">
-    <!-- ступени -->
-    <rect x="30" y="420" width="94" height="30" rx="5"/>
-    <rect x="107" y="358" width="94" height="30" rx="5"/>
-    <rect x="184" y="296" width="94" height="30" rx="5"/>
-    <rect x="261" y="234" width="152" height="30" rx="5"/>
-    <!-- флаг -->
-    <rect x="392" y="86" width="11" height="152" rx="5"/>
-    <path d="M403 92 h60 l-15 23 15 23 h-60 z"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="110" fill="#FFFFFF"/>
+  <g fill="#F2A230">
     <!-- голова -->
-    <circle cx="309" cy="124" r="25"/>
-  </g>
-  <!-- человечек -->
-  <g stroke="#1F2A22" stroke-width="17" stroke-linecap="round" fill="none">
-    <path d="M317 152 L336 214"/>
-    <path d="M321 166 L286 112"/>
-    <path d="M322 170 L369 197"/>
-    <path d="M336 214 L305 240"/>
-    <path d="M336 214 L368 234"/>
+    <circle cx="285" cy="160" r="48"/>
+    <!-- правая рука и корпус-полумесяц -->
+    <path d="M 420 78
+             C 428 168, 410 268, 368 328
+             C 330 382, 275 408, 205 428
+             C 235 375, 255 335, 272 305
+             C 305 245, 358 150, 420 78
+             Z"/>
+    <!-- левая рука (сливается с корпусом) -->
+    <path d="M 100 190
+             C 175 200, 248 218, 310 248
+             C 300 278, 293 305, 291 332
+             C 235 296, 158 238, 100 190
+             Z"/>
   </g>
 </svg>
