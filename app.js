@@ -544,18 +544,18 @@ function renderMoodChart() {
   const cLine = css.getPropertyValue('--primary').trim();
   const cCard = css.getPropertyValue('--card').trim();
 
-  // дни, когда выполнены все запланированные привычки, — отметим огоньком
-  const fireDays = [];
+  // дни, когда выполнены все запланированные привычки, — их точки станут огоньками
+  const fireDays = new Set();
   if (moodRange !== 'year') {
     slots.forEach((s, i) => {
       const habits = habitsForDate(s.ds);
-      if (habits.length > 0 && habits.every(h => isChecked(h.id, s.ds))) fireDays.push(i);
+      if (habits.length > 0 && habits.every(h => isChecked(h.id, s.ds))) fireDays.add(i);
     });
   }
 
-  // геометрия: высокий график, чтобы читались все 10 уровней (снизу место под 🔥)
+  // геометрия: высокий график, чтобы читались все 10 уровней
   const W = 360, H = 300;
-  const padL = 34, padR = 12, padT = 12, padB = 40;
+  const padL = 34, padR = 12, padT = 12, padB = 26;
   const plotW = W - padL - padR;
   const plotH = H - padT - padB;
   const x = i => padL + (slots.length === 1 ? plotW / 2 : i / (slots.length - 1) * plotW);
@@ -578,21 +578,21 @@ function renderMoodChart() {
     }
   });
 
-  // 🔥 под графиком — день, когда выполнены все привычки
-  fireDays.forEach(i => {
-    svg += `<text x="${x(i)}" y="${H - padB + 16}" font-size="10" text-anchor="middle">🔥</text>`;
-  });
-
   // плавная линия через точки (Catmull-Rom -> Bezier), без острых углов
   if (points.length > 1) {
     const coords = points.map(p => ({ x: x(p.i), y: y(p.level) }));
     svg += `<path d="${smoothPath(coords)}" fill="none" stroke="${cLine}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
   }
 
-  // точки (+ невидимая зона побольше для удобного тапа)
+  // точки; в день, когда выполнены все привычки, вместо точки — огонёк
   points.forEach(p => {
     const attr = p.ds !== undefined ? `data-ds="${p.ds}"` : `data-month="${p.month}"`;
-    svg += `<circle cx="${x(p.i)}" cy="${y(p.level)}" r="4.5" fill="${cLine}" stroke="${cCard}" stroke-width="1.5"/>`;
+    if (fireDays.has(p.i)) {
+      svg += `<circle cx="${x(p.i)}" cy="${y(p.level)}" r="8" fill="${cCard}"/>`;
+      svg += `<text x="${x(p.i)}" y="${y(p.level) + 5}" font-size="14" text-anchor="middle">🔥</text>`;
+    } else {
+      svg += `<circle cx="${x(p.i)}" cy="${y(p.level)}" r="4.5" fill="${cLine}" stroke="${cCard}" stroke-width="1.5"/>`;
+    }
     svg += `<circle class="chart-dot" ${attr} cx="${x(p.i)}" cy="${y(p.level)}" r="13" fill="transparent"/>`;
   });
 
