@@ -208,18 +208,17 @@ html, body {
   margin-bottom: 10px;
 }
 .mood-options {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr); /* 10 уровней — две строки по 5 */
   gap: 6px;
   margin-bottom: 10px;
 }
 .mood-option {
-  flex: 1;
   border: 2px solid transparent;
   background: var(--bg);
   border-radius: 12px;
-  font-size: 26px;
-  padding: 7px 0;
+  font-size: 24px;
+  padding: 6px 0;
   cursor: pointer;
   filter: grayscale(70%);
   opacity: .7;

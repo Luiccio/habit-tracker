@@ -7,7 +7,8 @@ const STORAGE_KEY = 'habitTrackerData';
 // Структура данных:
 // data.habits = [{ id, name, emoji, color, days: [0..6] (0=Вс, как в JS), createdAt: 'YYYY-MM-DD' }]
 // data.checks = { 'YYYY-MM-DD': [habitId, ...] }
-// data.moods  = { 'YYYY-MM-DD': { level: 1..5, note: '' } }
+// data.moods  = { 'YYYY-MM-DD': { level: 1..10, note: '' } }
+// data.moodScale = 10 — маркер миграции старой шкалы 1..5
 let data = loadData();
 
 function loadData() {
@@ -17,13 +18,24 @@ function loadData() {
       const parsed = JSON.parse(raw);
       if (parsed && Array.isArray(parsed.habits) && typeof parsed.checks === 'object') {
         if (!parsed.moods || typeof parsed.moods !== 'object') parsed.moods = {};
-        return parsed;
+        return migrateMoodScale(parsed);
       }
     }
   } catch (e) {
     console.error('Не удалось прочитать данные:', e);
   }
-  return { habits: [], checks: {}, moods: {} };
+  return { habits: [], checks: {}, moods: {}, moodScale: 10 };
+}
+
+// Старые сохранения хранили настроение по шкале 1..5 — переводим в 1..10
+function migrateMoodScale(obj) {
+  if (obj.moodScale === 10) return obj;
+  for (const ds of Object.keys(obj.moods)) {
+    const m = obj.moods[ds];
+    if (m && m.level) m.level = Math.min(10, Math.max(1, m.level * 2));
+  }
+  obj.moodScale = 10;
+  return obj;
 }
 
 function saveData() {
@@ -137,7 +149,7 @@ function monthPercent(habit, year, month) {
 
 /* ==================== Настроение ==================== */
 
-const MOOD_EMOJIS = ['😢', '🙁', '😐', '🙂', '😄']; // уровни 1..5
+const MOOD_EMOJIS = ['😭', '😢', '🙁', '😕', '😐', '🙂', '😊', '😄', '😁', '🤩']; // уровни 1..10
 
 function getMood(ds) {
   return data.moods[ds] || null;
@@ -164,7 +176,7 @@ function renderMoodOptions(container, ds, afterChange) {
     btn.type = 'button';
     btn.className = 'mood-option' + (mood && mood.level === level ? ' selected' : '');
     btn.textContent = emoji;
-    btn.setAttribute('aria-label', 'Настроение ' + level + ' из 5');
+    btn.setAttribute('aria-label', 'Настроение ' + level + ' из ' + MOOD_EMOJIS.length);
     btn.addEventListener('click', () => {
       updateMood(ds, { level: mood && mood.level === level ? null : level });
       if (afterChange) afterChange();
@@ -498,20 +510,20 @@ function renderMoodChart() {
   const plotW = W - padL - padR;
   const plotH = H - padT - padB;
   const x = day => padL + (daysInMonth === 1 ? plotW / 2 : (day - 1) / (daysInMonth - 1) * plotW);
-  // ось Y — сетка на 10 делений; смайлики (уровни 1..5) ложатся на чётные линии (2,4,6,8,10)
+  // ось Y — сетка на 10 делений, уровень настроения 1..10 ложится на свою линию
   const yFine = v => padT + (10 - v) / 9 * plotH;
-  const y = level => yFine(level * 2);
+  const y = level => yFine(level);
 
   let svg = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
 
-  // 10 горизонтальных линий: чётные — основные (со смайликом), нечётные — тонкая промежуточная сетка
+  // 10 горизонтальных линий; чтобы смайлики не слипались, подписываем чётные уровни
   for (let v = 1; v <= 10; v++) {
     const labeled = v % 2 === 0;
     const lineOpacity = labeled ? '1' : '.5';
     const dash = labeled ? '' : ' stroke-dasharray="2,3"';
     svg += `<line x1="${padL}" y1="${yFine(v)}" x2="${W - padR}" y2="${yFine(v)}" stroke="${cGrid}" stroke-width="1" opacity="${lineOpacity}"${dash}/>`;
     if (labeled) {
-      svg += `<text x="6" y="${yFine(v) + 5}" font-size="13">${MOOD_EMOJIS[v / 2 - 1]}</text>`;
+      svg += `<text x="6" y="${yFine(v) + 5}" font-size="12">${MOOD_EMOJIS[v - 1]}</text>`;
     }
   }
 
@@ -786,6 +798,7 @@ $('import-file').addEventListener('change', e => {
         throw new Error('неверный формат');
       }
       if (!imported.moods || typeof imported.moods !== 'object') imported.moods = {};
+      migrateMoodScale(imported); // старые бэкапы со шкалой 1..5
       if (!confirm(`Заменить текущие данные? Будет загружено привычек: ${imported.habits.length}.`)) return;
       data = imported;
       saveData();
