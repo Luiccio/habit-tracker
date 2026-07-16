@@ -120,6 +120,22 @@
         <div class="empty-icon">✨</div>
         <p>Пока нет ни одной привычки.<br>Нажмите «+», чтобы добавить.</p>
       </div>
+      <div class="section-title">Напоминания</div>
+      <div id="notif-permission" class="notif-permission hidden">
+        <p>Чтобы получать напоминания, разреши уведомления.</p>
+        <button id="btn-notif-permission" class="btn-primary">Разрешить уведомления</button>
+      </div>
+      <div class="habit-card notif-card">
+        <div class="habit-emoji" style="background:#a78bfa22">🌙</div>
+        <div class="habit-info">
+          <div class="habit-name">Когда ты ложишься спать?</div>
+          <div class="habit-meta">В это время спросим: «Какое у тебя сегодня настроение?»</div>
+        </div>
+        <input type="time" id="bedtime-input" class="time-input">
+      </div>
+      <div id="notif-list" class="habit-list"></div>
+      <button id="btn-add-notif" class="btn-secondary btn-add-notif">+ Добавить напоминание</button>
+
       <div class="data-actions">
         <button id="btn-export" class="btn-secondary">⬇ Экспорт JSON</button>
         <button id="btn-import" class="btn-secondary">⬆ Импорт JSON</button>
@@ -180,6 +196,26 @@
       <div id="day-modal-list" class="habit-list"></div>
       <div class="modal-actions">
         <button id="day-close" class="btn-primary">Готово</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модалка: своё напоминание -->
+  <div id="notif-modal" class="modal-overlay hidden">
+    <div class="modal">
+      <h2 id="notif-modal-title">Новое напоминание</h2>
+      <label class="field-label">Текст напоминания</label>
+      <input type="text" id="notif-text" class="text-input" placeholder="Например: выйти на пробежку" maxlength="80">
+      <label class="field-label">Время</label>
+      <input type="time" id="notif-time" class="text-input">
+      <label class="field-label">Дни недели</label>
+      <div class="days-row-wrap">
+        <div id="notif-days-picker" class="days-picker"></div>
+        <button id="notif-all-days" class="btn-link" type="button">каждый день</button>
+      </div>
+      <div class="modal-actions">
+        <button id="notif-cancel" class="btn-secondary">Отмена</button>
+        <button id="notif-save" class="btn-primary">Сохранить</button>
       </div>
     </div>
   </div>

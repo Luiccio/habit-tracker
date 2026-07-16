@@ -1,7 +1,7 @@
 'use strict';
 
 // При изменении файлов приложения увеличьте версию — кэш обновится
-const CACHE_NAME = 'habit-tracker-v20';
+const CACHE_NAME = 'habit-tracker-v21';
 
 const APP_SHELL = [
   './',
@@ -26,6 +26,19 @@ self.addEventListener('activate', event => {
     caches.keys().then(keys =>
       Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
     ).then(() => self.clients.claim())
+  );
+});
+
+// Клик по уведомлению: фокусируем открытое приложение или открываем новое окно
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      for (const c of list) {
+        if ('focus' in c) return c.focus();
+      }
+      return clients.openWindow('./');
+    })
   );
 });
 

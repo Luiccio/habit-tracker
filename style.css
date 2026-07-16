@@ -701,6 +701,40 @@ html, body {
 
 .confirm-text { color: var(--text-muted); font-size: 14px; line-height: 1.5; }
 
+/* ---------- Напоминания ---------- */
+.section-title {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 24px 0 10px;
+}
+.notif-permission {
+  background: var(--primary-light);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  font-size: 13.5px;
+  line-height: 1.4;
+}
+.notif-permission button {
+  margin-top: 10px;
+  width: 100%;
+}
+.notif-card { margin-bottom: 10px; }
+.time-input {
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 9px;
+  padding: 8px 10px;
+  font-size: 14px;
+  font-family: inherit;
+  flex-shrink: 0;
+}
+.btn-add-notif {
+  width: 100%;
+  margin-top: 10px;
+}
+
 .data-actions {
   display: flex;
   gap: 10px;

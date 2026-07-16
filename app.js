@@ -9,6 +9,7 @@ const STORAGE_KEY = 'habitTrackerData';
 // data.checks = { 'YYYY-MM-DD': [habitId, ...] }
 // data.moods  = { 'YYYY-MM-DD': { level: 1..10, note: '' } }
 // data.moodScale = 10 — маркер миграции старой шкалы 1..5
+// data.notifs = { bedtime: { time: 'HH:MM' }, custom: [{ id, title, time, days: [0..6] }] }
 let data = loadData();
 
 function loadData() {
@@ -18,13 +19,24 @@ function loadData() {
       const parsed = JSON.parse(raw);
       if (parsed && Array.isArray(parsed.habits) && typeof parsed.checks === 'object') {
         if (!parsed.moods || typeof parsed.moods !== 'object') parsed.moods = {};
+        migrateNotifs(parsed);
         return migrateMoodScale(parsed);
       }
     }
   } catch (e) {
     console.error('Не удалось прочитать данные:', e);
   }
-  return { habits: [], checks: {}, moods: {}, moodScale: 10 };
+  return { habits: [], checks: {}, moods: {}, moodScale: 10, notifs: { bedtime: { time: '20:00' }, custom: [] } };
+}
+
+// Back-fill настроек уведомлений для старых сохранений
+function migrateNotifs(obj) {
+  if (!obj.notifs || typeof obj.notifs !== 'object') obj.notifs = {};
+  if (!obj.notifs.bedtime || !/^\d{2}:\d{2}$/.test(obj.notifs.bedtime.time || '')) {
+    obj.notifs.bedtime = { time: '20:00' };
+  }
+  if (!Array.isArray(obj.notifs.custom)) obj.notifs.custom = [];
+  return obj;
 }
 
 // Старые сохранения хранили настроение по шкале 1..5 — переводим в 1..10
@@ -740,6 +752,8 @@ function renderHabits() {
     card.querySelector('.del-btn').addEventListener('click', () => openConfirmModal(h.id));
     list.appendChild(card);
   });
+
+  renderNotifs();
 }
 
 /* ---------- Модалка привычки ---------- */
@@ -872,6 +886,188 @@ $('confirm-delete').addEventListener('click', () => {
   render();
 });
 
+/* ==================== Напоминания ==================== */
+
+let editingNotifId = null;
+let formNotifDays = [0, 1, 2, 3, 4, 5, 6];
+
+function renderNotifs() {
+  // баннер запроса разрешения
+  const supported = 'Notification' in window;
+  $('notif-permission').classList.toggle('hidden', !supported || Notification.permission === 'granted');
+
+  // предустановленное: время отхода ко сну
+  if (document.activeElement !== $('bedtime-input')) {
+    $('bedtime-input').value = data.notifs.bedtime.time;
+  }
+
+  // свои напоминания
+  const list = $('notif-list');
+  list.innerHTML = '';
+  data.notifs.custom.forEach(n => {
+    const card = document.createElement('div');
+    card.className = 'habit-card';
+    card.innerHTML = `
+      <div class="habit-emoji" style="background:#0ea5e922">⏰</div>
+      <div class="habit-info">
+        <div class="habit-name"></div>
+        <div class="habit-meta">${n.time} · ${daysLabel(n.days)}</div>
+      </div>
+      <button class="icon-btn edit-btn" aria-label="Редактировать">✏️</button>
+      <button class="icon-btn del-btn" aria-label="Удалить">🗑️</button>
+    `;
+    card.querySelector('.habit-name').textContent = n.title;
+    card.querySelector('.edit-btn').addEventListener('click', () => openNotifModal(n.id));
+    card.querySelector('.del-btn').addEventListener('click', () => {
+      if (confirm(`Удалить напоминание «${n.title}»?`)) {
+        data.notifs.custom = data.notifs.custom.filter(x => x.id !== n.id);
+        saveData();
+        renderNotifs();
+      }
+    });
+    list.appendChild(card);
+  });
+}
+
+$('bedtime-input').addEventListener('change', () => {
+  const v = $('bedtime-input').value;
+  if (/^\d{2}:\d{2}$/.test(v)) {
+    data.notifs.bedtime.time = v;
+    saveData();
+  }
+});
+
+$('btn-notif-permission').addEventListener('click', () => {
+  Notification.requestPermission().then(() => renderNotifs());
+});
+
+/* ---------- Модалка своего напоминания ---------- */
+
+$('btn-add-notif').addEventListener('click', () => openNotifModal(null));
+
+function openNotifModal(notifId) {
+  editingNotifId = notifId;
+  const n = notifId ? data.notifs.custom.find(x => x.id === notifId) : null;
+  $('notif-modal-title').textContent = n ? 'Редактировать напоминание' : 'Новое напоминание';
+  $('notif-text').value = n ? n.title : '';
+  $('notif-time').value = n ? n.time : '09:00';
+  formNotifDays = n ? [...n.days] : [0, 1, 2, 3, 4, 5, 6];
+  renderNotifDaysPicker();
+  $('notif-modal').classList.remove('hidden');
+  if (!n) $('notif-text').focus();
+}
+
+function renderNotifDaysPicker() {
+  const box = $('notif-days-picker');
+  box.innerHTML = '';
+  DAY_ORDER.forEach((dayVal, i) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'day-option' + (formNotifDays.includes(dayVal) ? ' selected' : '');
+    btn.textContent = DAY_LABELS[i];
+    btn.addEventListener('click', () => {
+      if (formNotifDays.includes(dayVal)) {
+        formNotifDays = formNotifDays.filter(d => d !== dayVal);
+      } else {
+        formNotifDays.push(dayVal);
+      }
+      renderNotifDaysPicker();
+    });
+    box.appendChild(btn);
+  });
+}
+
+$('notif-all-days').addEventListener('click', () => {
+  formNotifDays = [0, 1, 2, 3, 4, 5, 6];
+  renderNotifDaysPicker();
+});
+
+$('notif-cancel').addEventListener('click', () => $('notif-modal').classList.add('hidden'));
+
+$('notif-save').addEventListener('click', () => {
+  const title = $('notif-text').value.trim();
+  const time = $('notif-time').value;
+  if (!title) {
+    $('notif-text').focus();
+    $('notif-text').placeholder = 'Введите текст!';
+    return;
+  }
+  if (!/^\d{2}:\d{2}$/.test(time)) {
+    alert('Укажите время напоминания');
+    return;
+  }
+  if (formNotifDays.length === 0) {
+    alert('Выберите хотя бы один день недели');
+    return;
+  }
+
+  if (editingNotifId) {
+    const n = data.notifs.custom.find(x => x.id === editingNotifId);
+    n.title = title;
+    n.time = time;
+    n.days = [...formNotifDays];
+  } else {
+    data.notifs.custom.push({
+      id: 'n' + Date.now() + Math.random().toString(36).slice(2, 7),
+      title,
+      time,
+      days: [...formNotifDays],
+    });
+  }
+  saveData();
+  $('notif-modal').classList.add('hidden');
+  renderNotifs();
+});
+
+/* ---------- Планировщик уведомлений ---------- */
+
+const NOTIF_SHOWN_KEY = 'habitNotifShown'; // { ключ: 'YYYY-MM-DD' } — показано в этот день
+
+function showAppNotification(title, body, tag) {
+  const opts = { body, icon: 'icon.svg', badge: 'icon.svg', tag };
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.ready
+      .then(reg => reg.showNotification(title, opts))
+      .catch(() => { try { new Notification(title, opts); } catch (e) {} });
+  } else {
+    try { new Notification(title, opts); } catch (e) {}
+  }
+}
+
+function checkNotifications() {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  const now = new Date();
+  const hm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const ds = todayStr();
+  let shown = {};
+  try { shown = JSON.parse(localStorage.getItem(NOTIF_SHOWN_KEY) || '{}'); } catch (e) {}
+
+  const fire = (key, title, body) => {
+    if (shown[key] === ds) return; // уже показывали сегодня
+    shown[key] = ds;
+    localStorage.setItem(NOTIF_SHOWN_KEY, JSON.stringify(shown));
+    showAppNotification(title, body, key);
+  };
+
+  // вопрос о настроении в час отхода ко сну — если настроение ещё не отмечено
+  const mood = getMood(ds);
+  if (hm >= data.notifs.bedtime.time && !(mood && mood.level)) {
+    fire('mood', 'Какое у тебя сегодня настроение?', 'Отметь настроение перед сном 🌙');
+  }
+
+  // свои напоминания — в выбранные дни недели
+  data.notifs.custom.forEach(n => {
+    if (n.days.includes(now.getDay()) && hm >= n.time) {
+      fire(n.id, n.title, `Запланировано на ${n.time}`);
+    }
+  });
+}
+
+setInterval(checkNotifications, 30000);
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) checkNotifications();
+});
+
 /* ==================== Экспорт / импорт ==================== */
 
 $('btn-export').addEventListener('click', () => {
@@ -897,6 +1093,7 @@ $('import-file').addEventListener('change', e => {
         throw new Error('неверный формат');
       }
       if (!imported.moods || typeof imported.moods !== 'object') imported.moods = {};
+      migrateNotifs(imported);
       migrateMoodScale(imported); // старые бэкапы со шкалой 1..5
       if (!confirm(`Заменить текущие данные? Будет загружено привычек: ${imported.habits.length}.`)) return;
       data = imported;
@@ -1038,6 +1235,7 @@ applyTheme(document.documentElement.dataset.theme || 'light');
 initCalendar();
 applyTrackPosition(false);
 render();
+checkNotifications();
 
 // Обновление экрана при смене даты (если вкладка открыта долго)
 let lastKnownDate = todayStr();
