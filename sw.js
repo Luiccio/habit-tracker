@@ -1,7 +1,7 @@
 'use strict';
 
 // При изменении файлов приложения увеличьте версию — кэш обновится
-const CACHE_NAME = 'habit-tracker-v22';
+const CACHE_NAME = 'habit-tracker-v23';
 
 const APP_SHELL = [
   './',
@@ -10,6 +10,7 @@ const APP_SHELL = [
   './app.js',
   './manifest.json',
   './icon.svg',
+  './icon-push.png',
 ];
 
 self.addEventListener('install', event => {
@@ -36,8 +37,8 @@ self.addEventListener('push', event => {
   event.waitUntil(
     self.registration.showNotification(msg.title || 'Напоминание', {
       body: msg.body || '',
-      icon: 'icon.svg',
-      badge: 'icon.svg',
+      icon: 'icon-push.png',
+      badge: 'icon-push.png',
       tag: msg.tag || 'habit-push',
     })
   );

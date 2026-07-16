@@ -1031,7 +1031,7 @@ $('notif-save').addEventListener('click', () => {
 const NOTIF_SHOWN_KEY = 'habitNotifShown'; // { ключ: 'YYYY-MM-DD' } — показано в этот день
 
 function showAppNotification(title, body, tag) {
-  const opts = { body, icon: 'icon.svg', badge: 'icon.svg', tag };
+  const opts = { body, icon: 'icon-push.png', badge: 'icon-push.png', tag };
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.ready
       .then(reg => reg.showNotification(title, opts))
