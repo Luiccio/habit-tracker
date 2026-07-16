@@ -176,6 +176,7 @@ function updateMood(ds, patch) {
     data.moods[ds] = m;
   }
   saveData();
+  schedulePushSync(); // сервер должен знать, что настроение сегодня уже отмечено
 }
 
 // Отрисовать 5 смайликов в контейнер; повторный тап по выбранному — снять отметку
@@ -923,6 +924,7 @@ function renderNotifs() {
         data.notifs.custom = data.notifs.custom.filter(x => x.id !== n.id);
         saveData();
         renderNotifs();
+        schedulePushSync();
       }
     });
     list.appendChild(card);
@@ -934,11 +936,15 @@ $('bedtime-input').addEventListener('change', () => {
   if (/^\d{2}:\d{2}$/.test(v)) {
     data.notifs.bedtime.time = v;
     saveData();
+    schedulePushSync();
   }
 });
 
 $('btn-notif-permission').addEventListener('click', () => {
-  Notification.requestPermission().then(() => renderNotifs());
+  Notification.requestPermission().then(() => {
+    renderNotifs();
+    syncPushSubscription();
+  });
 });
 
 /* ---------- Модалка своего напоминания ---------- */
@@ -1017,6 +1023,7 @@ $('notif-save').addEventListener('click', () => {
   saveData();
   $('notif-modal').classList.add('hidden');
   renderNotifs();
+  schedulePushSync();
 });
 
 /* ---------- Планировщик уведомлений ---------- */
@@ -1067,6 +1074,49 @@ setInterval(checkNotifications, 30000);
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) checkNotifications();
 });
+
+/* ---------- Web Push: настоящие уведомления при закрытом приложении ---------- */
+
+const PUSH_SERVER = 'https://habit-push.luiccio.workers.dev';
+const VAPID_PUBLIC_KEY = 'BDYWJKt4wjCuG6fGMe750v9FYKGLPhKwrpbHp9KQgOUY4zzkIrWw8lMWq-BELk-rItBFZB6OyRJp93Gs3t98Qt4';
+
+function urlBase64ToUint8Array(base64) {
+  const padding = '='.repeat((4 - base64.length % 4) % 4);
+  const raw = atob((base64 + padding).replace(/-/g, '+').replace(/_/g, '/'));
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+// Подписывается на push и отправляет серверу расписание напоминаний.
+// Вызывается при любом изменении настроек и раз при запуске.
+async function syncPushSubscription() {
+  try {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    if (Notification.permission !== 'granted') return;
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+    }
+    const mood = getMood(todayStr());
+    await fetch(PUSH_SERVER + '/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        subscription: sub.toJSON(),
+        schedule: { bedtime: data.notifs.bedtime.time, custom: data.notifs.custom },
+        tz: new Date().getTimezoneOffset(),
+        moodDate: mood && mood.level ? todayStr() : null, // чтобы сервер не спрашивал зря
+      }),
+    });
+  } catch (e) {
+    console.warn('Не удалось синхронизировать push-подписку:', e);
+  }
+}
+
+const schedulePushSync = debounce(syncPushSubscription, 1500);
 
 /* ==================== Экспорт / импорт ==================== */
 
@@ -1236,6 +1286,7 @@ initCalendar();
 applyTrackPosition(false);
 render();
 checkNotifications();
+syncPushSubscription();
 
 // Обновление экрана при смене даты (если вкладка открыта долго)
 let lastKnownDate = todayStr();

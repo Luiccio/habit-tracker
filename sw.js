@@ -1,7 +1,7 @@
 'use strict';
 
 // При изменении файлов приложения увеличьте версию — кэш обновится
-const CACHE_NAME = 'habit-tracker-v21';
+const CACHE_NAME = 'habit-tracker-v22';
 
 const APP_SHELL = [
   './',
@@ -26,6 +26,20 @@ self.addEventListener('activate', event => {
     caches.keys().then(keys =>
       Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
     ).then(() => self.clients.claim())
+  );
+});
+
+// Push с сервера напоминаний: показываем уведомление даже при закрытом приложении
+self.addEventListener('push', event => {
+  let msg = {};
+  try { msg = event.data ? event.data.json() : {}; } catch (e) {}
+  event.waitUntil(
+    self.registration.showNotification(msg.title || 'Напоминание', {
+      body: msg.body || '',
+      icon: 'icon.svg',
+      badge: 'icon.svg',
+      tag: msg.tag || 'habit-push',
+    })
   );
 });
 
