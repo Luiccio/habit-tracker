@@ -449,6 +449,24 @@ function renderCalendar() {
 
 /* ---------- График настроения ---------- */
 
+// Строит плавную SVG-кривую через точки (Catmull-Rom, переведённая в кубические Bezier)
+function smoothPath(points) {
+  if (points.length < 2) return '';
+  let d = `M ${points[0].x.toFixed(1)},${points[0].y.toFixed(1)}`;
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[i === 0 ? 0 : i - 1];
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const p3 = points[i + 2 < points.length ? i + 2 : i + 1];
+    const cp1x = p1.x + (p2.x - p0.x) / 6;
+    const cp1y = p1.y + (p2.y - p0.y) / 6;
+    const cp2x = p2.x - (p3.x - p1.x) / 6;
+    const cp2y = p2.y - (p3.y - p1.y) / 6;
+    d += ` C ${cp1x.toFixed(1)},${cp1y.toFixed(1)} ${cp2x.toFixed(1)},${cp2y.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`;
+  }
+  return d;
+}
+
 function renderMoodChart() {
   const wrap = $('mood-chart-wrap');
   const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
@@ -480,14 +498,21 @@ function renderMoodChart() {
   const plotW = W - padL - padR;
   const plotH = H - padT - padB;
   const x = day => padL + (daysInMonth === 1 ? plotW / 2 : (day - 1) / (daysInMonth - 1) * plotW);
-  const y = level => padT + (5 - level) / 4 * plotH;
+  // ось Y — сетка на 10 делений; смайлики (уровни 1..5) ложатся на чётные линии (2,4,6,8,10)
+  const yFine = v => padT + (10 - v) / 9 * plotH;
+  const y = level => yFine(level * 2);
 
   let svg = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
 
-  // горизонтальные линии уровней со смайликами слева
-  for (let lvl = 1; lvl <= 5; lvl++) {
-    svg += `<line x1="${padL}" y1="${y(lvl)}" x2="${W - padR}" y2="${y(lvl)}" stroke="${cGrid}" stroke-width="1"/>`;
-    svg += `<text x="6" y="${y(lvl) + 5}" font-size="13">${MOOD_EMOJIS[lvl - 1]}</text>`;
+  // 10 горизонтальных линий: чётные — основные (со смайликом), нечётные — тонкая промежуточная сетка
+  for (let v = 1; v <= 10; v++) {
+    const labeled = v % 2 === 0;
+    const lineOpacity = labeled ? '1' : '.5';
+    const dash = labeled ? '' : ' stroke-dasharray="2,3"';
+    svg += `<line x1="${padL}" y1="${yFine(v)}" x2="${W - padR}" y2="${yFine(v)}" stroke="${cGrid}" stroke-width="1" opacity="${lineOpacity}"${dash}/>`;
+    if (labeled) {
+      svg += `<text x="6" y="${yFine(v) + 5}" font-size="13">${MOOD_EMOJIS[v / 2 - 1]}</text>`;
+    }
   }
 
   // подписи дней по оси X
@@ -496,10 +521,10 @@ function renderMoodChart() {
     svg += `<text x="${x(day)}" y="${H - 6}" font-size="9" fill="${cLabel}" text-anchor="middle">${day}</text>`;
   }
 
-  // линия
+  // плавная линия через точки (Catmull-Rom -> Bezier), без острых углов
   if (points.length > 1) {
-    const path = points.map(p => `${x(p.day).toFixed(1)},${y(p.level).toFixed(1)}`).join(' ');
-    svg += `<polyline points="${path}" fill="none" stroke="${cLine}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+    const coords = points.map(p => ({ x: x(p.day), y: y(p.level) }));
+    svg += `<path d="${smoothPath(coords)}" fill="none" stroke="${cLine}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
   }
 
   // точки (+ невидимая зона побольше для удобного тапа)

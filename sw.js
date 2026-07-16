@@ -1,7 +1,7 @@
 'use strict';
 
 // При изменении файлов приложения увеличьте версию — кэш обновится
-const CACHE_NAME = 'habit-tracker-v14';
+const CACHE_NAME = 'habit-tracker-v15';
 
 const APP_SHELL = [
   './',
