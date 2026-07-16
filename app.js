@@ -544,9 +544,18 @@ function renderMoodChart() {
   const cLine = css.getPropertyValue('--primary').trim();
   const cCard = css.getPropertyValue('--card').trim();
 
-  // геометрия: высокий график, чтобы читались все 10 уровней
+  // дни, когда выполнены все запланированные привычки, — отметим огоньком
+  const fireDays = [];
+  if (moodRange !== 'year') {
+    slots.forEach((s, i) => {
+      const habits = habitsForDate(s.ds);
+      if (habits.length > 0 && habits.every(h => isChecked(h.id, s.ds))) fireDays.push(i);
+    });
+  }
+
+  // геометрия: высокий график, чтобы читались все 10 уровней (снизу место под 🔥)
   const W = 360, H = 300;
-  const padL = 34, padR = 12, padT = 12, padB = 26;
+  const padL = 34, padR = 12, padT = 12, padB = 40;
   const plotW = W - padL - padR;
   const plotH = H - padT - padB;
   const x = i => padL + (slots.length === 1 ? plotW / 2 : i / (slots.length - 1) * plotW);
@@ -567,6 +576,11 @@ function renderMoodChart() {
     if (i % step === 0) {
       svg += `<text x="${x(i)}" y="${H - 8}" font-size="9" fill="${cLabel}" text-anchor="middle">${s.label}</text>`;
     }
+  });
+
+  // 🔥 под графиком — день, когда выполнены все привычки
+  fireDays.forEach(i => {
+    svg += `<text x="${x(i)}" y="${H - padB + 16}" font-size="10" text-anchor="middle">🔥</text>`;
   });
 
   // плавная линия через точки (Catmull-Rom -> Bezier), без острых углов
