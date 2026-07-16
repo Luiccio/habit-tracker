@@ -287,6 +287,17 @@ html, body {
   font-weight: 600;
   box-shadow: 0 1px 3px rgba(0, 0, 0, .12);
 }
+.chart-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.chart-period-label {
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
 #mood-chart-wrap svg { width: 100%; height: auto; display: block; }
 #mood-chart-wrap .chart-dot { cursor: pointer; }
 .mood-chart-empty {

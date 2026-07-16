@@ -225,6 +225,11 @@ let weekStart = mondayOf(new Date()); // понедельник отобража
 let calYear, calMonth;           // отображаемый месяц календаря
 let calFilter = 'all';           // фильтр календаря: 'all' или id привычки
 let moodRange = 'month';         // период графика настроения: 'week' | 'month' | 'year'
+// собственный период графика (не зависит от месяца календаря)
+let chartWeekStart = mondayOf(new Date());
+let chartMonthY = new Date().getFullYear();
+let chartMonthM = new Date().getMonth();
+let chartYear = new Date().getFullYear();
 let editingHabitId = null;       // id редактируемой привычки (null = новая)
 let deletingHabitId = null;
 let dayModalDate = null;
@@ -485,24 +490,30 @@ function renderMoodChart() {
 
   // слоты оси X и точки — в зависимости от периода (неделя/месяц/год)
   const slots = [];  // { label, ds } для дней или { label, month } для года
-  const now = new Date();
+  const fmtDM = d => `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}`;
+  let periodLabel = '';
 
   if (moodRange === 'week') {
-    // последние 7 дней, включая сегодня
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(chartWeekStart.getFullYear(), chartWeekStart.getMonth(), chartWeekStart.getDate() + i);
       slots.push({ label: String(d.getDate()), ds: dateStr(d) });
     }
+    const weekEnd = new Date(chartWeekStart.getFullYear(), chartWeekStart.getMonth(), chartWeekStart.getDate() + 6);
+    periodLabel = `${fmtDM(chartWeekStart)} – ${fmtDM(weekEnd)}`;
   } else if (moodRange === 'month') {
-    const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+    const daysInMonth = new Date(chartMonthY, chartMonthM + 1, 0).getDate();
     for (let day = 1; day <= daysInMonth; day++) {
-      slots.push({ label: String(day), ds: dateStr(new Date(calYear, calMonth, day)) });
+      slots.push({ label: String(day), ds: dateStr(new Date(chartMonthY, chartMonthM, day)) });
     }
+    periodLabel = `${MONTH_NAMES[chartMonthM]} ${chartMonthY}`;
   } else {
     // год: 12 месяцев, точка — среднее настроение месяца
     const monthShort = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
     for (let m = 0; m < 12; m++) slots.push({ label: monthShort[m], month: m });
+    periodLabel = String(chartYear);
   }
+
+  $('chart-period-label').textContent = periodLabel;
 
   const points = []; // { i, level, ds? , month? }
   slots.forEach((s, i) => {
@@ -510,10 +521,10 @@ function renderMoodChart() {
       const mood = getMood(s.ds);
       if (mood && mood.level) points.push({ i, level: mood.level, ds: s.ds });
     } else {
-      const daysInMonth = new Date(calYear, s.month + 1, 0).getDate();
+      const daysInMonth = new Date(chartYear, s.month + 1, 0).getDate();
       let sum = 0, n = 0;
       for (let day = 1; day <= daysInMonth; day++) {
-        const mood = getMood(dateStr(new Date(calYear, s.month, day)));
+        const mood = getMood(dateStr(new Date(chartYear, s.month, day)));
         if (mood && mood.level) { sum += mood.level; n++; }
       }
       if (n > 0) points.push({ i, level: sum / n, month: s.month });
@@ -534,7 +545,7 @@ function renderMoodChart() {
   const cCard = css.getPropertyValue('--card').trim();
 
   // геометрия: высокий график, чтобы читались все 10 уровней
-  const W = 360, H = 250;
+  const W = 360, H = 300;
   const padL = 34, padR = 12, padT = 12, padB = 26;
   const plotW = W - padL - padR;
   const plotH = H - padT - padB;
@@ -547,7 +558,7 @@ function renderMoodChart() {
   // все 10 уровней с подписью-смайликом
   for (let v = 1; v <= 10; v++) {
     svg += `<line x1="${padL}" y1="${y(v)}" x2="${W - padR}" y2="${y(v)}" stroke="${cGrid}" stroke-width="1" opacity="${v % 2 === 0 ? '1' : '.55'}"/>`;
-    svg += `<text x="6" y="${y(v) + 4.5}" font-size="12">${MOOD_EMOJIS[v - 1]}</text>`;
+    svg += `<text x="6" y="${y(v) + 4.5}" font-size="13">${MOOD_EMOJIS[v - 1]}</text>`;
   }
 
   // подписи по оси X
@@ -580,9 +591,9 @@ function renderMoodChart() {
         openDayModal(dot.dataset.ds);
       } else {
         // точка года ведёт в месячный вид этого месяца
-        calMonth = Number(dot.dataset.month);
+        chartMonthY = chartYear;
+        chartMonthM = Number(dot.dataset.month);
         setMoodRange('month');
-        renderCalendar();
       }
     });
   });
@@ -599,6 +610,32 @@ function setMoodRange(range) {
 
 document.querySelectorAll('#chart-range button').forEach(btn => {
   btn.addEventListener('click', () => setMoodRange(btn.dataset.range));
+});
+
+// листание периода: неделя ±7 дней, месяц ±1, год ±1
+function shiftChartPeriod(dir) {
+  if (moodRange === 'week') {
+    chartWeekStart = new Date(chartWeekStart.getFullYear(), chartWeekStart.getMonth(), chartWeekStart.getDate() + dir * 7);
+  } else if (moodRange === 'month') {
+    chartMonthM += dir;
+    if (chartMonthM < 0) { chartMonthM = 11; chartMonthY--; }
+    if (chartMonthM > 11) { chartMonthM = 0; chartMonthY++; }
+  } else {
+    chartYear += dir;
+  }
+  renderMoodChart();
+}
+
+$('chart-prev').addEventListener('click', () => shiftChartPeriod(-1));
+$('chart-next').addEventListener('click', () => shiftChartPeriod(1));
+
+$('chart-today').addEventListener('click', () => {
+  const now = new Date();
+  chartWeekStart = mondayOf(now);
+  chartMonthY = now.getFullYear();
+  chartMonthM = now.getMonth();
+  chartYear = now.getFullYear();
+  renderMoodChart();
 });
 
 function renderMonthStats() {
