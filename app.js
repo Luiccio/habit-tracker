@@ -224,6 +224,7 @@ let selectedDate = todayStr();    // день, выбранный в полос�
 let weekStart = mondayOf(new Date()); // понедельник отображаемой недели
 let calYear, calMonth;           // отображаемый месяц календаря
 let calFilter = 'all';           // фильтр календаря: 'all' или id привычки
+let moodRange = 'month';         // период графика настроения: 'week' | 'month' | 'year'
 let editingHabitId = null;       // id редактируемой привычки (null = новая)
 let deletingHabitId = null;
 let dayModalDate = null;
@@ -481,15 +482,43 @@ function smoothPath(points) {
 
 function renderMoodChart() {
   const wrap = $('mood-chart-wrap');
-  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
 
-  // точки: дни месяца, где отмечено настроение
-  const points = [];
-  for (let day = 1; day <= daysInMonth; day++) {
-    const ds = dateStr(new Date(calYear, calMonth, day));
-    const mood = getMood(ds);
-    if (mood && mood.level) points.push({ day, ds, level: mood.level, note: mood.note || '' });
+  // слоты оси X и точки — в зависимости от периода (неделя/месяц/год)
+  const slots = [];  // { label, ds } для дней или { label, month } для года
+  const now = new Date();
+
+  if (moodRange === 'week') {
+    // последние 7 дней, включая сегодня
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+      slots.push({ label: String(d.getDate()), ds: dateStr(d) });
+    }
+  } else if (moodRange === 'month') {
+    const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+    for (let day = 1; day <= daysInMonth; day++) {
+      slots.push({ label: String(day), ds: dateStr(new Date(calYear, calMonth, day)) });
+    }
+  } else {
+    // год: 12 месяцев, точка — среднее настроение месяца
+    const monthShort = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+    for (let m = 0; m < 12; m++) slots.push({ label: monthShort[m], month: m });
   }
+
+  const points = []; // { i, level, ds? , month? }
+  slots.forEach((s, i) => {
+    if (s.ds !== undefined) {
+      const mood = getMood(s.ds);
+      if (mood && mood.level) points.push({ i, level: mood.level, ds: s.ds });
+    } else {
+      const daysInMonth = new Date(calYear, s.month + 1, 0).getDate();
+      let sum = 0, n = 0;
+      for (let day = 1; day <= daysInMonth; day++) {
+        const mood = getMood(dateStr(new Date(calYear, s.month, day)));
+        if (mood && mood.level) { sum += mood.level; n++; }
+      }
+      if (n > 0) points.push({ i, level: sum / n, month: s.month });
+    }
+  });
 
   $('mood-chart-empty').classList.toggle('hidden', points.length > 0);
   if (points.length === 0) {
@@ -504,54 +533,73 @@ function renderMoodChart() {
   const cLine = css.getPropertyValue('--primary').trim();
   const cCard = css.getPropertyValue('--card').trim();
 
-  // геометрия графика
-  const W = 360, H = 140;
-  const padL = 34, padR = 12, padT = 10, padB = 24;
+  // геометрия: высокий график, чтобы читались все 10 уровней
+  const W = 360, H = 250;
+  const padL = 34, padR = 12, padT = 12, padB = 26;
   const plotW = W - padL - padR;
   const plotH = H - padT - padB;
-  const x = day => padL + (daysInMonth === 1 ? plotW / 2 : (day - 1) / (daysInMonth - 1) * plotW);
-  // ось Y — сетка на 10 делений, уровень настроения 1..10 ложится на свою линию
-  const yFine = v => padT + (10 - v) / 9 * plotH;
-  const y = level => yFine(level);
+  const x = i => padL + (slots.length === 1 ? plotW / 2 : i / (slots.length - 1) * plotW);
+  // ось Y — 10 линий, уровень настроения 1..10 ложится на свою линию
+  const y = level => padT + (10 - level) / 9 * plotH;
 
   let svg = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
 
-  // 10 горизонтальных линий; чтобы смайлики не слипались, подписываем чётные уровни
+  // все 10 уровней с подписью-смайликом
   for (let v = 1; v <= 10; v++) {
-    const labeled = v % 2 === 0;
-    const lineOpacity = labeled ? '1' : '.5';
-    const dash = labeled ? '' : ' stroke-dasharray="2,3"';
-    svg += `<line x1="${padL}" y1="${yFine(v)}" x2="${W - padR}" y2="${yFine(v)}" stroke="${cGrid}" stroke-width="1" opacity="${lineOpacity}"${dash}/>`;
-    if (labeled) {
-      svg += `<text x="6" y="${yFine(v) + 5}" font-size="12">${MOOD_EMOJIS[v - 1]}</text>`;
-    }
+    svg += `<line x1="${padL}" y1="${y(v)}" x2="${W - padR}" y2="${y(v)}" stroke="${cGrid}" stroke-width="1" opacity="${v % 2 === 0 ? '1' : '.55'}"/>`;
+    svg += `<text x="6" y="${y(v) + 4.5}" font-size="12">${MOOD_EMOJIS[v - 1]}</text>`;
   }
 
-  // подписи дней по оси X
-  const step = daysInMonth > 20 ? 5 : (daysInMonth > 10 ? 3 : 1);
-  for (let day = 1; day <= daysInMonth; day += step) {
-    svg += `<text x="${x(day)}" y="${H - 6}" font-size="9" fill="${cLabel}" text-anchor="middle">${day}</text>`;
-  }
+  // подписи по оси X
+  const step = slots.length > 20 ? 5 : (slots.length > 12 ? 3 : 1);
+  slots.forEach((s, i) => {
+    if (i % step === 0) {
+      svg += `<text x="${x(i)}" y="${H - 8}" font-size="9" fill="${cLabel}" text-anchor="middle">${s.label}</text>`;
+    }
+  });
 
   // плавная линия через точки (Catmull-Rom -> Bezier), без острых углов
   if (points.length > 1) {
-    const coords = points.map(p => ({ x: x(p.day), y: y(p.level) }));
+    const coords = points.map(p => ({ x: x(p.i), y: y(p.level) }));
     svg += `<path d="${smoothPath(coords)}" fill="none" stroke="${cLine}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
   }
 
   // точки (+ невидимая зона побольше для удобного тапа)
   points.forEach(p => {
-    svg += `<circle cx="${x(p.day)}" cy="${y(p.level)}" r="4.5" fill="${cLine}" stroke="${cCard}" stroke-width="1.5"/>`;
-    svg += `<circle class="chart-dot" data-ds="${p.ds}" cx="${x(p.day)}" cy="${y(p.level)}" r="13" fill="transparent"/>`;
+    const attr = p.ds !== undefined ? `data-ds="${p.ds}"` : `data-month="${p.month}"`;
+    svg += `<circle cx="${x(p.i)}" cy="${y(p.level)}" r="4.5" fill="${cLine}" stroke="${cCard}" stroke-width="1.5"/>`;
+    svg += `<circle class="chart-dot" ${attr} cx="${x(p.i)}" cy="${y(p.level)}" r="13" fill="transparent"/>`;
   });
 
   svg += '</svg>';
   wrap.innerHTML = svg;
 
   wrap.querySelectorAll('.chart-dot').forEach(dot => {
-    dot.addEventListener('click', () => openDayModal(dot.dataset.ds));
+    dot.addEventListener('click', () => {
+      if (dot.dataset.ds !== undefined) {
+        openDayModal(dot.dataset.ds);
+      } else {
+        // точка года ведёт в месячный вид этого месяца
+        calMonth = Number(dot.dataset.month);
+        setMoodRange('month');
+        renderCalendar();
+      }
+    });
   });
 }
+
+/* ---------- Переключатель периода графика ---------- */
+
+function setMoodRange(range) {
+  moodRange = range;
+  document.querySelectorAll('#chart-range button').forEach(b =>
+    b.classList.toggle('active', b.dataset.range === range));
+  renderMoodChart();
+}
+
+document.querySelectorAll('#chart-range button').forEach(btn => {
+  btn.addEventListener('click', () => setMoodRange(btn.dataset.range));
+});
 
 function renderMonthStats() {
   const box = $('cal-month-stats');

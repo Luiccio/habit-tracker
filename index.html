@@ -86,7 +86,14 @@
       </div>
       <div id="cal-month-stats" class="month-stats"></div>
       <div class="mood-chart-card">
-        <div class="mood-chart-title">Настроение за месяц</div>
+        <div class="mood-chart-head">
+          <div class="mood-chart-title">Настроение</div>
+          <div class="chart-range" id="chart-range">
+            <button type="button" data-range="week">Неделя</button>
+            <button type="button" data-range="month" class="active">Месяц</button>
+            <button type="button" data-range="year">Год</button>
+          </div>
+        </div>
         <div id="mood-chart-wrap"></div>
         <p id="mood-chart-empty" class="mood-chart-empty hidden">
           Отмечайте настроение на вкладке «Сегодня» — здесь появится график.
