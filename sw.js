@@ -1,7 +1,7 @@
 'use strict';
 
 // При изменении файлов приложения увеличьте версию — кэш обновится
-const CACHE_NAME = 'habit-tracker-v23';
+const CACHE_NAME = 'habit-tracker-v24';
 
 const APP_SHELL = [
   './',
@@ -11,6 +11,7 @@ const APP_SHELL = [
   './manifest.json',
   './icon.svg',
   './icon-push.png',
+  './badge.png',
 ];
 
 self.addEventListener('install', event => {
@@ -38,7 +39,8 @@ self.addEventListener('push', event => {
     self.registration.showNotification(msg.title || 'Напоминание', {
       body: msg.body || '',
       icon: 'icon-push.png',
-      badge: 'icon-push.png',
+      badge: 'badge.png', // монохромный силуэт для статус-бара Android
+
       tag: msg.tag || 'habit-push',
     })
   );
